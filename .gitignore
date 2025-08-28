@@ -19,8 +19,10 @@ BVK/
 # Extra VRMA files (keep main animations)
 head_turn.vrma
 
-# Screenshots and images
+# Screenshots and images (except logo and screenshot)
 *.png
+!logo.png
+!vrmshot.png
 *.jpg
 *.jpeg
 *.gif
