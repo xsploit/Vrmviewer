@@ -1,0 +1,41 @@
+# Development guidelines (for Claude, not for users)
+CLAUDE.md
+
+# Backup and development files
+*.backup
+*.bak
+*.bakl
+
+# Zip packages
+*.zip
+
+# Unused JS modules
+whisper-worker.js
+
+# Development directories
+claude do not read files in here/
+BVK/
+
+# Extra VRMA files (keep main animations)
+head_turn.vrma
+
+# Screenshots and images
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Node modules (if any)
+node_modules/

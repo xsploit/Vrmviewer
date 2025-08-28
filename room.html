@@ -1,0 +1,2990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VRM + Room Viewer</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #000;
+            font-family: Arial, sans-serif;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        .controls {
+            position: fixed;
+            top: 5vh;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            color: white;
+            z-index: 1000;
+            min-width: 250px;
+            max-width: 350px;
+            height: 90vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+            transition: opacity 0.3s, transform 0.3s;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.3) rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Enhanced gradient scrollbar inspired by index3.html */
+        .controls::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .controls::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        
+        .controls::-webkit-scrollbar-thumb {
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        .controls::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(45deg, #ff5252, #26c6da);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+        
+        /* Smooth scrolling */
+        .controls {
+            scroll-behavior: smooth;
+        }
+        
+        /* Responsive adjustments for smaller screens */
+        @media (max-height: 600px) {
+            .controls {
+                max-height: 70vh;
+                padding: 15px;
+            }
+            
+            .control-group {
+                margin-bottom: 12px;
+            }
+        }
+        
+        @media (max-height: 500px) {
+            .controls {
+                max-height: 60vh;
+                padding: 10px;
+            }
+            
+            .control-group {
+                margin-bottom: 10px;
+            }
+            
+            label {
+                font-size: 11px;
+            }
+        }
+        
+        .controls.hidden {
+            opacity: 0;
+            transform: translateX(100%);
+            pointer-events: none;
+        }
+        
+        .controls-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #444;
+            padding-bottom: 10px;
+        }
+        
+        .controls-title {
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .close-btn {
+            background: #666;
+            border: none;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .close-btn:hover {
+            background: #888;
+        }
+        
+        .show-ui-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid #666;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 999;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        
+        .show-ui-btn.visible {
+            opacity: 1;
+            pointer-events: all;
+        }
+        
+        .show-ui-btn:hover {
+            background: rgba(0, 0, 0, 0.9);
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        .control-group:first-child {
+            margin-top: 0;
+        }
+        
+        .control-group:last-child {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        
+        input[type="file"] {
+            width: 100%;
+            padding: 5px;
+            border: 1px solid #444;
+            border-radius: 3px;
+            background: #222;
+            color: white;
+        }
+        
+        input[type="checkbox"] {
+            margin-right: 8px;
+            transform: scale(1.2);
+        }
+        
+        .vu-meter {
+            height: 20px;
+            background: #333;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+        
+        .vu-level {
+            height: 100%;
+            background: linear-gradient(90deg, green, yellow, red);
+            width: 0%;
+            transition: width 0.1s;
+        }
+        
+        .info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            color: white;
+            z-index: 1000;
+            font-size: 12px;
+            transition: opacity 0.3s, transform 0.3s;
+        }
+        
+        button {
+            background: #444;
+            border: 1px solid #666;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px 5px 5px 0;
+        }
+        
+        button:hover {
+            background: #555;
+        }
+        
+        button.active {
+            background: #0a5d00;
+            border-color: #0f7f00;
+        }
+        
+        #loadingStatus {
+            color: #0ff;
+            font-size: 11px;
+            margin-top: 10px;
+        }
+        
+        .vrm-controls {
+            border-top: 1px solid #444;
+            padding-top: 15px;
+            margin-top: 15px;
+        }
+        
+        .manipulation-modes {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+        
+        .manipulation-modes button {
+            padding: 5px 10px;
+            font-size: 11px;
+            margin: 0;
+        }
+        
+        
+        #audioSinkSelect {
+            background: #333;
+            border: 1px solid #555;
+            color: white;
+            padding: 8px;
+            border-radius: 5px;
+            width: 100%;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        
+        #audioSinkSelect option {
+            background: #333;
+            color: white;
+            padding: 5px;
+        }
+        
+        /* Accordion Styles */
+        .accordion-section {
+            margin-bottom: 10px;
+            border: 1px solid #444;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .accordion-header {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 12px 15px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.3s ease;
+            user-select: none;
+        }
+        
+        .accordion-header:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+        
+        .accordion-header.active {
+            background: rgba(0, 150, 255, 0.3);
+        }
+        
+        .accordion-title {
+            font-weight: bold;
+            font-size: 13px;
+        }
+        
+        .accordion-icon {
+            transition: transform 0.3s ease;
+            font-size: 14px;
+        }
+        
+        .accordion-header.active .accordion-icon {
+            transform: rotate(180deg);
+        }
+        
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            background: rgba(0, 0, 0, 0.3);
+        }
+        
+        .accordion-content.active {
+            max-height: 500px;
+            padding: 15px;
+        }
+        
+        .accordion-content .control-group {
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    
+    <div class="info">
+        <h3>VRM + Room Viewer</h3>
+        <p>Load a VRM avatar and environment room</p>
+        <div id="loadingStatus">Ready to load models</div>
+            <div style="margin-top: 10px; font-size: 10px; color: #aaa;">
+            <p><strong>VRM Controls:</strong> Shift+click+drag avatar to manipulate using current mode</p>
+            <p>• Move Mode: Shift+drag to reposition (X/Z when floor-snapped) • Scale Mode: Shift+drag up/down to resize • Rotate Mode: Shift+drag to rotate</p>
+            <p>• <strong>Floor Snapping:</strong> Keeps VRM on ground level, uncheck for free flight</p>
+            <p><strong>Animations:</strong> Load VRMA or FBX (Mixamo) files for VRM animations • Use buttons or keybinds (1: Play, 2: Stop, 3: Reset)</p>
+            <p><strong>Textures:</strong> Custom floor textures only apply to demo room currently</p>
+            <p><strong>Camera:</strong> Scroll wheel zooms camera, right-click + drag orbits</p>
+            <p><strong>Movement:</strong> WASD keys to move VRM through scene • <strong>Ctrl+WASD:</strong> Rotate VRM • Respects floor snapping setting</p>
+            <p><strong>Audio:</strong> Supports virtual audio cables (VB-Cable, Voicemeeter, etc.) for streaming integration</p>
+            <p><strong>UI Controls:</strong> Press 'H' to toggle UI • Press 'Escape' to hide UI • Click off-screen to hide UI</p>
+        </div>
+    </div>
+    
+    <button id="showUIBtn" class="show-ui-btn">Show Controls</button>
+    
+    <div id="controls" class="controls">
+        <div class="controls-header">
+            <div class="controls-title">VRM Controls</div>
+            <button id="closeUIBtn" class="close-btn">×</button>
+        </div>
+        
+        <!-- VRM & Animations Section -->
+        <div class="accordion-section">
+            <div class="accordion-header" data-accordion="vrm-animations">
+                <span class="accordion-title">🎭 VRM & Animations</span>
+                <span class="accordion-icon">▼</span>
+            </div>
+            <div class="accordion-content active">
+                <div class="control-group">
+                    <label>VRM Avatar:</label>
+                    <input type="file" id="vrmFile" accept=".vrm">
+                    <button id="loadDefaultVRM" style="margin-top: 5px; width: 100%; background: linear-gradient(45deg, #4ecdc4, #44a6b5);">
+                        🤖 Load Default VRM (AvatarSample_H.vrm)
+                    </button>
+                </div>
+                
+                <div class="control-group">
+                    <label>Animation (VRMA/FBX):</label>
+                    <input type="file" id="vrmaFile" accept=".vrma,.fbx">
+                    <div style="display: flex; gap: 5px; margin-top: 5px;">
+                        <button id="playAnimation" style="flex: 1; background: linear-gradient(45deg, #4ecdc4, #44a6b5);">▶️ Play</button>
+                        <button id="stopAnimation" style="flex: 1; background: linear-gradient(45deg, #ff6b6b, #ee5a52);">⏹️ Stop</button>
+                        <button id="resetAnimation" style="flex: 1; background: linear-gradient(45deg, #ffa500, #ff8c00);">🔄 Reset</button>
+                        <button id="clearAnimation" style="flex: 1; background: linear-gradient(45deg, #666, #555);">🗑️ Clear</button>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+        
+        <!-- VRM Manipulation Section -->
+        <div class="accordion-section">
+            <div class="accordion-header" data-accordion="vrm-manipulation">
+                <span class="accordion-title">🎭 VRM Manipulation</span>
+                <span class="accordion-icon">▼</span>
+            </div>
+            <div class="accordion-content">
+                <div class="manipulation-modes">
+                    <button id="moveMode" class="active">Move</button>
+                    <button id="scaleMode">Scale</button>
+                    <button id="rotateMode">Rotate</button>
+                </div>
+                
+                <div class="control-group">
+                    <label>VRM Scale: <span id="vrmScaleValue">1.0</span></label>
+                    <input type="range" id="vrmScale" min="0.1" max="3" step="0.1" value="1">
+                </div>
+                
+                <div class="control-group">
+                    <label>
+                        <input type="checkbox" id="snapToFloor" checked> Snap VRM to Floor
+                    </label>
+                </div>
+                
+                <button id="resetVRM">Reset VRM Position</button>
+            </div>
+        </div>
+        
+        <!-- Audio & Animation Section -->
+        <div class="accordion-section">
+            <div class="accordion-header" data-accordion="audio-animation">
+                <span class="accordion-title">🎤 Audio & Animation</span>
+                <span class="accordion-icon">▼</span>
+            </div>
+            <div class="accordion-content active">
+                <div class="control-group">
+                    <label>Audio Device/Sink:</label>
+                    <select id="audioSinkSelect">
+                        <option value="none">🔇 No Audio Monitoring</option>
+                        <option value="system">🖥️ System Audio (Screen Capture)</option>
+                        <option value="mic-default">🎤 Default Microphone</option>
+                    </select>
+                    <div style="font-size: 10px; color: #aaa; margin-top: 5px;">
+                        Select audio source to monitor for TTS/animation detection
+                    </div>
+                    <div class="vu-meter">
+                        <div class="vu-level" id="vuLevel"></div>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label>Mouth Threshold: <span id="mouthValue">10</span></label>
+                    <input type="range" id="mouthThreshold" min="0" max="50" value="10">
+                </div>
+                
+                <div class="control-group">
+                    <label>Body Movement: <span id="bodyValue">10</span></label>
+                    <input type="range" id="bodyThreshold" min="0" max="50" value="10">
+                </div>
+                
+                <div class="control-group">
+                    <label>Mouth Gain: <span id="gainValue">0.1</span></label>
+                    <input type="range" id="mouthGain" min="0" max="30" value="1">
+                </div>
+                
+            </div>
+        </div>
+        
+
+        <!-- TTS WebSocket Connection Section -->
+        <div class="accordion-section">
+            <div class="accordion-header" data-accordion="tts-connection">
+                <span class="accordion-title">🔌 TTS Connection</span>
+                <span class="accordion-icon">▼</span>
+            </div>
+            <div class="accordion-content">
+                <div class="control-group">
+                    <label>
+                        <input type="checkbox" id="enableTTSWebSocket" style="margin-right: 8px;">
+                        Enable TTS WebSocket Connection
+                    </label>
+                </div>
+                
+                <div class="control-group">
+                    <label>Connection Status:</label>
+                    <div id="websocketStatus" style="padding: 8px; border-radius: 5px; background: #444; color: #ff6b6b; font-size: 12px; margin-top: 5px;">
+                        🔴 Disconnected
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Idle Animation (for TTS):</label>
+                    <input type="file" id="idleAnimationFile" accept=".fbx,.vrma" style="margin-bottom: 5px;">
+                    <button id="loadIdleBtn" style="width: 100%; margin: 2px; background: linear-gradient(45deg, #4ecdc4, #44a6b5);">
+                        😴 Load & Set as Idle
+                    </button>
+                </div>
+
+                <div class="control-group">
+                    <label>Talking Animation (for TTS):</label>
+                    <input type="file" id="talkingAnimationFile" accept=".fbx,.vrma" style="margin-bottom: 5px;">
+                    <button id="loadTalkingBtn" style="width: 100%; margin: 2px; background: linear-gradient(45deg, #ff6b6b, #ee5a52);">
+                        🗣️ Load & Set as Talking
+                    </button>
+                </div>
+
+                <div class="control-group">
+                    <button id="reconnectTTSBtn" style="width: 100%; margin-bottom: 10px; background: linear-gradient(45deg, #4ecdc4, #44a6b5);">
+                        🔄 Reconnect TTS Server
+                    </button>
+                    <button id="testTalkingBtn" style="width: 100%; background: linear-gradient(45deg, #ff6b6b, #ee5a52);">
+                        🎭 Test Talking Animation
+                    </button>
+                </div>
+
+                <div class="control-group">
+                    <label>Animation Status:</label>
+                    <div id="animationStatus" style="padding: 8px; border-radius: 5px; background: #444; color: #4ecdc4; font-size: 12px; margin-top: 5px;">
+                        💤 Idle
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Environment Section -->
+        <div class="accordion-section">
+            <div class="accordion-header" data-accordion="environment">
+                <span class="accordion-title">🌍 Environment</span>
+                <span class="accordion-icon">▼</span>
+            </div>
+            <div class="accordion-content">
+                <div class="control-group">
+                    <label>Room/Environment (.glb/.gltf):</label>
+                    <input type="file" id="roomFile" accept=".glb,.gltf">
+                    <button id="loadDemoRoom" style="margin-top: 5px; width: 100%; background: linear-gradient(45deg, #4ecdc4, #44a6b5);">
+                        🏠 Load Demo Room
+                    </button>
+                </div>
+                
+                <div class="control-group">
+                    <label>Floor Texture (jpg/png):</label>
+                    <input type="file" id="floorTextureFile" accept=".jpg,.jpeg,.png,.bmp,.gif">
+                    <button id="clearFloorTexture" style="margin-top: 5px; width: 100%; background: linear-gradient(45deg, #666, #555);">
+                        🔄 Use Default Floor
+                    </button>
+                </div>
+                
+                <div class="control-group">
+                    <button id="resetCamera" style="width: 100%; background: linear-gradient(45deg, #4ecdc4, #44a6b5);">
+                        📷 Reset Camera to Default
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modern Three.js ES6 Module Imports -->
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/",
+        "@pixiv/three-vrm-core": "./js/three-vrm-core.module.js",
+        "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3/lib/three-vrm.module.js",
+        "@pixiv/three-vrm-animation": "./js/three-vrm-animation.module.js"
+      }
+    }
+    </script>
+
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { VRMLoaderPlugin } from '@pixiv/three-vrm';
+        import { VRMAnimationLoaderPlugin, createVRMAnimationClip } from '@pixiv/three-vrm-animation';
+
+        // Scene setup
+        let scene, camera, renderer, controls;
+        let vrm = null;
+        let room = null;
+        let audioContext, microphone, analyser, dataArray;
+        let stream = null;
+        let animationEnabled = true;
+        let clock;
+        
+        // System audio detection variables
+        let systemAudioStream = null;
+        let systemAudioContext = null;
+        let systemAnalyser = null;
+        let systemDataArray = null;
+        let talkingAnimation = null;
+        let talkingAnimationAction = null;
+        let idleAnimation = null;
+        let idleAnimationAction = null;
+        let isTalking = false;
+        let isConnectedToTTS = false;
+        let lastTalkingTime = 0;
+        let talkingThreshold = 15;
+        let silenceDelay = 500; // ms before stopping talking animation
+        let monitoringMode = 'system'; // 'system', 'input', 'output'
+        let selectedOutputDevice = null;
+        
+        // WebSocket connection for TTS signaling
+        let ttsWebSocket = null;
+        let reconnectInterval = null;
+        
+        // Animation variables
+        let currentMixer = null;
+        let currentVrmAnimation = null;
+        let currentAnimationAction = null;
+        let animationClip = null;
+        
+        // Mixamo to VRM bone mapping (from working reference)
+        const mixamoVRMRigMap = {
+            mixamorigHips: 'hips',
+            mixamorigSpine: 'spine',
+            mixamorigSpine1: 'chest',
+            mixamorigSpine2: 'upperChest',
+            mixamorigNeck: 'neck',
+            mixamorigHead: 'head',
+            mixamorigLeftShoulder: 'leftShoulder',
+            mixamorigLeftArm: 'leftUpperArm',
+            mixamorigLeftForeArm: 'leftLowerArm',
+            mixamorigLeftHand: 'leftHand',
+            mixamorigLeftHandThumb1: 'leftThumbMetacarpal',
+            mixamorigLeftHandThumb2: 'leftThumbProximal',
+            mixamorigLeftHandThumb3: 'leftThumbDistal',
+            mixamorigLeftHandIndex1: 'leftIndexProximal',
+            mixamorigLeftHandIndex2: 'leftIndexIntermediate',
+            mixamorigLeftHandIndex3: 'leftIndexDistal',
+            mixamorigLeftHandMiddle1: 'leftMiddleProximal',
+            mixamorigLeftHandMiddle2: 'leftMiddleIntermediate',
+            mixamorigLeftHandMiddle3: 'leftMiddleDistal',
+            mixamorigLeftHandRing1: 'leftRingProximal',
+            mixamorigLeftHandRing2: 'leftRingIntermediate',
+            mixamorigLeftHandRing3: 'leftRingDistal',
+            mixamorigLeftHandPinky1: 'leftLittleProximal',
+            mixamorigLeftHandPinky2: 'leftLittleIntermediate',
+            mixamorigLeftHandPinky3: 'leftLittleDistal',
+            mixamorigRightShoulder: 'rightShoulder',
+            mixamorigRightArm: 'rightUpperArm',
+            mixamorigRightForeArm: 'rightLowerArm',
+            mixamorigRightHand: 'rightHand',
+            mixamorigRightHandPinky1: 'rightLittleProximal',
+            mixamorigRightHandPinky2: 'rightLittleIntermediate',
+            mixamorigRightHandPinky3: 'rightLittleDistal',
+            mixamorigRightHandRing1: 'rightRingProximal',
+            mixamorigRightHandRing2: 'rightRingIntermediate',
+            mixamorigRightHandRing3: 'rightRingDistal',
+            mixamorigRightHandMiddle1: 'rightMiddleProximal',
+            mixamorigRightHandMiddle2: 'rightMiddleIntermediate',
+            mixamorigRightHandMiddle3: 'rightMiddleDistal',
+            mixamorigRightHandIndex1: 'rightIndexProximal',
+            mixamorigRightHandIndex2: 'rightIndexIntermediate',
+            mixamorigRightHandIndex3: 'rightIndexDistal',
+            mixamorigRightHandThumb1: 'rightThumbMetacarpal',
+            mixamorigRightHandThumb2: 'rightThumbProximal',
+            mixamorigRightHandThumb3: 'rightThumbDistal',
+            mixamorigLeftUpLeg: 'leftUpperLeg',
+            mixamorigLeftLeg: 'leftLowerLeg',
+            mixamorigLeftFoot: 'leftFoot',
+            mixamorigLeftToeBase: 'leftToes',
+            mixamorigRightUpLeg: 'rightUpperLeg',
+            mixamorigRightLeg: 'rightLowerLeg',
+            mixamorigRightFoot: 'rightFoot',
+            mixamorigRightToeBase: 'rightToes'
+        };
+        
+        // Animation variables (VU-VRM style)
+        let mouthThreshold = 10;
+        let bodyThreshold = 10;
+        let mouthGain = 0.1;
+        let currentVolume = 0;
+        
+        // Phoneme-based mouth animation
+        let currentPhonemes = [];
+        let phonemeStartTime = 0;
+        let currentPhonemeIndex = 0;
+        let waitingForAudio = false;
+        let pendingPhonemeText = null;
+        
+        // Subtle phoneme to VRM blend shape mapping (lower intensities for natural look)
+        const phonemeToBlendShape = {
+            // Vowels - reduced intensities for natural movement
+            'AH': { 'aa': 0.5 },                // "a" in "cat"
+            'AA': { 'aa': 0.6 },                // "a" in "father"
+            'AE': { 'aa': 0.4 },                // "a" in "bat"
+            'AO': { 'oh': 0.5 },                // "o" in "law"
+            'AW': { 'oh': 0.4, 'aa': 0.2 },     // "ow" in "cow"
+            'AY': { 'aa': 0.3 },                // "i" in "my"
+            'EH': { 'ih': 0.4 },                // "e" in "bet"
+            'ER': { 'oh': 0.3 },                // "er" in "her"
+            'EY': { 'ih': 0.4 },                // "a" in "bay"
+            'IH': { 'ih': 0.4 },                // "i" in "bit"
+            'IY': { 'ee': 0.4 },                // "ee" in "bee"
+            'OW': { 'oh': 0.5 },                // "o" in "go"
+            'OY': { 'oh': 0.4 },                // "oy" in "boy"
+            'UH': { 'ou': 0.3 },                // "u" in "put"
+            'UW': { 'ou': 0.5 },                // "oo" in "boot"
+            
+            // Consonants - minimal movement
+            'B': {},                            // Lips closed (neutral)
+            'P': {},                            // Lips closed (neutral)
+            'M': {},                            // Lips closed (neutral)
+            'F': { 'ih': 0.2 },                 // Lower lip to teeth
+            'V': { 'ih': 0.2 },                 // Lower lip to teeth
+            'TH': { 'ih': 0.2 },                // Tongue between teeth
+            'S': { 'ih': 0.3 },                 // Narrow opening
+            'Z': { 'ih': 0.3 },                 // Narrow opening
+            'SH': { 'oh': 0.3 },                // Rounded narrow
+            'ZH': { 'oh': 0.3 },                // Rounded narrow
+            'L': { 'ih': 0.2 },                 // Tongue up
+            'R': { 'oh': 0.2 },                 // Slight rounding
+            'W': { 'ou': 0.4 },                 // Rounded lips
+            
+            // Default/silence
+            'SIL': {}                           // Neutral position
+        };
+        
+        // Simple text-to-phoneme conversion (basic English)
+        function textToPhonemes(text) {
+            const words = text.toLowerCase().split(/\s+/);
+            const phonemes = [];
+            
+            // Basic phoneme mapping for common words
+            const wordToPhonemes = {
+                'hello': ['HH', 'AH', 'L', 'OW'],
+                'world': ['W', 'ER', 'L', 'D'],
+                'the': ['TH', 'AH'],
+                'and': ['AE', 'N', 'D'],
+                'you': ['Y', 'UW'],
+                'are': ['AA', 'R'],
+                'this': ['TH', 'IH', 'S'],
+                'that': ['TH', 'AE', 'T'],
+                'have': ['HH', 'AE', 'V'],
+                'with': ['W', 'IH', 'TH'],
+                'for': ['F', 'AO', 'R'],
+                'not': ['N', 'AA', 'T'],
+                'can': ['K', 'AE', 'N'],
+                'will': ['W', 'IH', 'L'],
+                'about': ['AH', 'B', 'AW', 'T'],
+                'time': ['T', 'AY', 'M'],
+                'good': ['G', 'UH', 'D'],
+                'like': ['L', 'AY', 'K'],
+                'make': ['M', 'EY', 'K'],
+                'know': ['N', 'OW'],
+                'say': ['S', 'EY'],
+                'get': ['G', 'EH', 'T'],
+                'go': ['G', 'OW'],
+                'see': ['S', 'IY'],
+                'come': ['K', 'AH', 'M'],
+                'take': ['T', 'EY', 'K'],
+                'give': ['G', 'IH', 'V'],
+                'way': ['W', 'EY'],
+                'new': ['N', 'UW'],
+                'work': ['W', 'ER', 'K'],
+                'call': ['K', 'AO', 'L'],
+                'use': ['Y', 'UW', 'Z'],
+                'how': ['HH', 'AW'],
+                'now': ['N', 'AW'],
+                'people': ['P', 'IY', 'P', 'AH', 'L'],
+                'great': ['G', 'R', 'EY', 'T'],
+                'first': ['F', 'ER', 'S', 'T'],
+                'where': ['W', 'EH', 'R'],
+                'much': ['M', 'AH', 'CH'],
+                'here': ['HH', 'IH', 'R'],
+                'over': ['OW', 'V', 'ER'],
+                'think': ['TH', 'IH', 'NG', 'K'],
+                'after': ['AE', 'F', 'T', 'ER'],
+                'back': ['B', 'AE', 'K'],
+                'other': ['AH', 'TH', 'ER'],
+                'many': ['M', 'EH', 'N', 'IY'],
+                'than': ['TH', 'AE', 'N'],
+                'then': ['TH', 'EH', 'N'],
+                'them': ['TH', 'EH', 'M'],
+                'these': ['TH', 'IY', 'Z'],
+                'two': ['T', 'UW'],
+                'more': ['M', 'AO', 'R'],
+                'very': ['V', 'EH', 'R', 'IY'],
+                'what': ['W', 'AA', 'T'],
+                'when': ['W', 'EH', 'N'],
+                'there': ['TH', 'EH', 'R'],
+                'each': ['IY', 'CH'],
+                'which': ['W', 'IH', 'CH'],
+                'their': ['TH', 'EH', 'R'],
+                'said': ['S', 'EH', 'D'],
+                'if': ['IH', 'F'],
+                'do': ['D', 'UW'],
+                'been': ['B', 'IH', 'N'],
+                'has': ['HH', 'AE', 'Z'],
+                'her': ['HH', 'ER'],
+                'his': ['HH', 'IH', 'Z'],
+                'she': ['SH', 'IY'],
+                'he': ['HH', 'IY'],
+                'my': ['M', 'AY'],
+                'me': ['M', 'IY'],
+                'we': ['W', 'IY'],
+                'they': ['TH', 'EY'],
+                'all': ['AO', 'L'],
+                'any': ['EH', 'N', 'IY'],
+                'your': ['Y', 'AO', 'R'],
+                'how': ['HH', 'AW'],
+                'its': ['IH', 'T', 'S'],
+                'our': ['AW', 'ER']
+            };
+            
+            words.forEach(word => {
+                if (wordToPhonemes[word]) {
+                    phonemes.push(...wordToPhonemes[word]);
+                } else {
+                    // Simple fallback for unknown words
+                    for (let char of word) {
+                        switch(char) {
+                            case 'a': phonemes.push('AE'); break;
+                            case 'e': phonemes.push('EH'); break;
+                            case 'i': phonemes.push('IH'); break;
+                            case 'o': phonemes.push('AO'); break;
+                            case 'u': phonemes.push('AH'); break;
+                            default: phonemes.push('AH'); break;
+                        }
+                    }
+                }
+                // Add multiple silence frames between words for natural pauses
+                phonemes.push('SIL', 'SIL');
+            });
+            
+            return phonemes;
+        }
+        
+        // VRM manipulation variables
+        let vrmManipulation = {
+            mode: 'move', // 'move', 'scale', 'rotate'
+            isDragging: false,
+            lastMouseX: 0,
+            lastMouseY: 0,
+            dragSpeed: 0.005,
+            scaleSpeed: 0.01,
+            rotateSpeed: 0.02,
+            isVrmSelected: false,
+            snapToFloor: true,
+            floorLevel: 0
+        };
+        
+        // UI state
+        let uiState = {
+            isVisible: true
+        };
+        
+        // Blinking system
+        let blinkingEnabled = true;
+        let lastBlinkTime = 0;
+        let nextBlinkDelay = 0;
+        
+        
+        // Floor texture storage
+        let customFloorTexture = null;
+        let isDemoRoomLoaded = false;
+        
+        let raycaster, mouse;
+        
+        // WASD movement and rotation system
+        let keyStates = {
+            w: false,
+            a: false,
+            s: false,
+            d: false,
+            ctrl: false,
+            arrowUp: false,
+            arrowDown: false,
+            arrowLeft: false,
+            arrowRight: false
+        };
+        let moveSpeed = 0.05;
+        
+        // Blinking function
+        function performBlink() {
+            if (!vrm || !vrm.userData.vrm || !vrm.userData.vrm.expressionManager || !blinkingEnabled) return;
+            
+            const expressionManager = vrm.userData.vrm.expressionManager;
+            const blinkDuration = 150; // milliseconds
+            
+            // Start blink
+            expressionManager.setValue('blink', 1);
+            expressionManager.setValue('blinkLeft', 1);
+            expressionManager.setValue('blinkRight', 1);
+            expressionManager.update();
+            
+            // End blink after duration
+            setTimeout(() => {
+                if (vrm && vrm.userData.vrm && vrm.userData.vrm.expressionManager) {
+                    expressionManager.setValue('blink', 0);
+                    expressionManager.setValue('blinkLeft', 0);
+                    expressionManager.setValue('blinkRight', 0);
+                    expressionManager.update();
+                }
+            }, blinkDuration);
+        }
+        
+        // Update blinking
+        function updateBlinking(currentTime) {
+            if (!blinkingEnabled || !vrm) return;
+            
+            if (currentTime - lastBlinkTime > nextBlinkDelay) {
+                performBlink();
+                lastBlinkTime = currentTime;
+                // Random delay between 2-6 seconds for natural blinking
+                nextBlinkDelay = 2000 + Math.random() * 4000;
+            }
+        }
+        
+        // WASD movement and rotation function
+        function updateVRMMovement() {
+            if (!vrm) return;
+            
+            if (keyStates.ctrl) {
+                // Ctrl+WASD for rotation
+                const rotateSpeed = 0.02;
+                let rotationChanged = false;
+                
+                if (keyStates.w) {
+                    vrm.scene.rotation.x += rotateSpeed; // Rotate up
+                    rotationChanged = true;
+                }
+                if (keyStates.s) {
+                    vrm.scene.rotation.x -= rotateSpeed; // Rotate down
+                    rotationChanged = true;
+                }
+                if (keyStates.a) {
+                    vrm.scene.rotation.y += rotateSpeed; // Rotate left
+                    rotationChanged = true;
+                }
+                if (keyStates.d) {
+                    vrm.scene.rotation.y -= rotateSpeed; // Rotate right
+                    rotationChanged = true;
+                }
+                
+                if (rotationChanged) {
+                    updateLoadingStatus(`VRM rotation: X:${(vrm.scene.rotation.x * 180/Math.PI).toFixed(1)}° Y:${(vrm.scene.rotation.y * 180/Math.PI).toFixed(1)}°`);
+                }
+            } else {
+                // Regular WASD for movement - relative to camera view
+                const movement = new THREE.Vector3(0, 0, 0);
+                
+                if (keyStates.w) movement.z -= moveSpeed; // Forward
+                if (keyStates.s) movement.z += moveSpeed; // Backward
+                if (keyStates.a) movement.x -= moveSpeed; // Left
+                if (keyStates.d) movement.x += moveSpeed; // Right
+                
+                if (movement.length() > 0) {
+                    // Transform movement relative to camera's orientation
+                    const cameraDirection = new THREE.Vector3();
+                    camera.getWorldDirection(cameraDirection);
+                    
+                    // Create camera-relative coordinate system
+                    const forward = cameraDirection.clone().normalize();
+                    const right = forward.clone().cross(camera.up).normalize();
+                    
+                    // Apply movement relative to camera orientation
+                    const worldMovement = new THREE.Vector3();
+                    worldMovement.add(forward.multiplyScalar(-movement.z)); // Forward/backward
+                    worldMovement.add(right.multiplyScalar(movement.x));    // Left/right
+                    
+                    vrm.scene.position.add(worldMovement);
+                    
+                    // Maintain floor snapping if enabled
+                    if (vrmManipulation.snapToFloor) {
+                        vrm.scene.position.y = vrmManipulation.floorLevel;
+                    }
+                    
+                    updateLoadingStatus(`VRM position: X:${vrm.scene.position.x.toFixed(2)} Y:${vrm.scene.position.y.toFixed(2)} Z:${vrm.scene.position.z.toFixed(2)}`);
+                }
+            }
+            
+            // Arrow key camera movement
+            const cameraMovement = new THREE.Vector3(0, 0, 0);
+            const cameraSpeed = 0.1;
+            
+            if (keyStates.arrowUp) cameraMovement.z += cameraSpeed;    // Forward
+            if (keyStates.arrowDown) cameraMovement.z -= cameraSpeed;  // Backward  
+            if (keyStates.arrowLeft) cameraMovement.x += cameraSpeed;  // Left
+            if (keyStates.arrowRight) cameraMovement.x -= cameraSpeed; // Right
+            
+            if (cameraMovement.length() > 0) {
+                camera.position.add(cameraMovement);
+                controls.target.add(cameraMovement);
+                controls.update();
+            }
+        }
+        
+        
+        // WebSocket connection for TTS signaling
+        function connectToTTSServer() {
+            try {
+                ttsWebSocket = new WebSocket('ws://localhost:8765');
+                
+                ttsWebSocket.onopen = function() {
+                    console.log('🔌 Connected to TTS WebSocket server');
+                    updateLoadingStatus('Connected to TTS server');
+                    isConnectedToTTS = true;
+                    updateWebSocketStatus('🟢 Connected', '#4ecdc4');
+                    
+                    // Start idle animation when TTS connects (if we have idle animation loaded)
+                    if (idleAnimation) {
+                        startIdleAnimation();
+                    }
+                    if (reconnectInterval) {
+                        clearInterval(reconnectInterval);
+                        reconnectInterval = null;
+                    }
+                };
+                
+                ttsWebSocket.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        console.log('📡 Received TTS signal:', data.type, data.text ? `"${data.text}"` : '');
+                        
+                        if (data.type === 'tts_start') {
+                            startTalkingAnimationFromTTS();
+                        } else if (data.type === 'tts_end') {
+                            stopTalkingAnimationFromTTS();
+                        }
+                    } catch (e) {
+                        console.error('Error parsing WebSocket message:', e);
+                    }
+                };
+                
+                ttsWebSocket.onclose = function() {
+                    console.log('🔌 TTS WebSocket connection closed');
+                    updateLoadingStatus('TTS server disconnected - attempting reconnect...');
+                    isConnectedToTTS = false;
+                    updateWebSocketStatus('🔴 Disconnected', '#ff6b6b');
+                    ttsWebSocket = null;
+                    
+                    // Auto-reconnect
+                    if (!reconnectInterval) {
+                        reconnectInterval = setInterval(connectToTTSServer, 5000);
+                    }
+                };
+                
+                ttsWebSocket.onerror = function(error) {
+                    console.error('🔌 TTS WebSocket error:', error);
+                };
+                
+            } catch (error) {
+                console.error('Failed to connect to TTS server:', error);
+                updateLoadingStatus('TTS server connection failed - retrying...');
+                
+                // Retry connection
+                if (!reconnectInterval) {
+                    reconnectInterval = setInterval(connectToTTSServer, 5000);
+                }
+            }
+        }
+        
+        // UI Status update functions
+        function updateWebSocketStatus(status, color) {
+            const statusEl = document.getElementById('websocketStatus');
+            if (statusEl) {
+                statusEl.textContent = status;
+                statusEl.style.color = color;
+            }
+        }
+        
+        function updateAnimationStatus(status, color = '#4ecdc4') {
+            const statusEl = document.getElementById('animationStatus');
+            if (statusEl) {
+                statusEl.textContent = status;
+                statusEl.style.color = color;
+            }
+        }
+
+        // Auto-load default VRM
+        async function loadDefaultVRM() {
+            try {
+                updateLoadingStatus('Loading default VRM...');
+                
+                const url = './assets/models/AvatarSample_H.vrm';
+                const loader = new GLTFLoader();
+                loader.crossOrigin = 'anonymous';
+
+                // Register VRM loader plugin
+                loader.register((parser) => {
+                    return new VRMLoaderPlugin(parser);
+                });
+
+                const gltf = await loader.loadAsync(url);
+                const vrmInstance = gltf.userData.vrm;
+
+                if (vrmInstance) {
+                    // Clean up previous VRM
+                    if (vrm) {
+                        scene.remove(vrm.scene);
+                        vrm.dispose();
+                    }
+
+                    vrm = { userData: { vrm: vrmInstance }, scene: gltf.scene };
+                    scene.add(gltf.scene);
+
+                    // Reset VRM position and scale
+                    resetVRMPosition();
+
+                    updateLoadingStatus('✅ Default VRM loaded successfully');
+                    console.log('VRM loaded:', vrmInstance);
+                    
+                    // Display available blend shapes
+                    if (vrmInstance.expressionManager) {
+                        const blendShapes = Object.keys(vrmInstance.expressionManager._expressionMap || {});
+                        console.log('🎭 Available blend shapes:', blendShapes);
+                        console.log('🎭 Total blend shapes:', blendShapes.length);
+                    }
+                    
+                    // Auto-load default animations
+                    await loadDefaultAnimations();
+                    
+                    // Auto-start idle animation (always start idle when VRM loads)
+                    if (idleAnimation) {
+                        startIdleAnimation();
+                    }
+                } else {
+                    throw new Error('No VRM data found in file');
+                }
+                
+            } catch (error) {
+                console.error('Error loading default VRM:', error);
+                updateLoadingStatus('❌ Failed to load default VRM - check file exists');
+            }
+        }
+
+        // Auto-load default animations
+        async function loadDefaultAnimations() {
+            try {
+                console.log('🎭 Auto-loading default animations...');
+                
+                // Load Happy Idle.fbx as idle animation
+                const idleResponse = await fetch('./assets/animations/Happy Idle.fbx');
+                const idleArrayBuffer = await idleResponse.arrayBuffer();
+                const idleBlob = new Blob([idleArrayBuffer]);
+                const idleFile = new File([idleBlob], 'Happy Idle.fbx', { type: 'application/octet-stream' });
+                
+                await loadFBX(idleFile);
+                idleAnimation = animationClip;
+                console.log('✅ Auto-loaded idle animation');
+                
+                // Load Talking.fbx as talking animation  
+                const talkingResponse = await fetch('./assets/animations/Talking.fbx');
+                const talkingArrayBuffer = await talkingResponse.arrayBuffer();
+                const talkingBlob = new Blob([talkingArrayBuffer]);
+                const talkingFile = new File([talkingBlob], 'Talking.fbx', { type: 'application/octet-stream' });
+                
+                await loadFBX(talkingFile);
+                talkingAnimation = animationClip;
+                console.log('✅ Auto-loaded talking animation');
+                
+                // Set back to idle animation for display
+                if (idleAnimation && currentMixer) {
+                    animationClip = idleAnimation;
+                    currentAnimationAction = currentMixer.clipAction(idleAnimation);
+                    currentAnimationAction.setLoop(THREE.LoopRepeat);
+                    currentAnimationAction.reset();
+                    currentAnimationAction.play();
+                }
+                
+                updateLoadingStatus('✅ Default VRM and animations loaded');
+                
+            } catch (error) {
+                console.error('Error auto-loading animations:', error);
+                updateLoadingStatus('⚠️ VRM loaded, animations failed to auto-load');
+            }
+        }
+
+        // Load idle animation from file input
+        async function loadIdleAnimationFromFile() {
+            const fileInput = document.getElementById('idleAnimationFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                updateLoadingStatus('Select an idle animation file first');
+                return;
+            }
+            
+            if (!vrm) {
+                updateLoadingStatus('Load VRM first before loading animations');
+                return;
+            }
+            
+            try {
+                updateLoadingStatus('Loading idle animation...');
+                
+                // Use the existing working loadFBX function
+                await loadFBX(file);
+                
+                // Save the loaded animation as idle animation
+                idleAnimation = animationClip;
+                
+                // Play the animation immediately like the working system
+                if (currentAnimationAction) {
+                    currentAnimationAction.reset();
+                    currentAnimationAction.play();
+                }
+                
+                updateLoadingStatus('✅ Idle animation loaded and playing');
+                console.log('✅ Idle animation saved for TTS system');
+                
+            } catch (error) {
+                console.error('Error loading idle animation:', error);
+                updateLoadingStatus('❌ Failed to load idle animation');
+            }
+        }
+
+        // Load talking animation from file input
+        async function loadTalkingAnimationFromFile() {
+            const fileInput = document.getElementById('talkingAnimationFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                updateLoadingStatus('Select a talking animation file first');
+                return;
+            }
+            
+            if (!vrm) {
+                updateLoadingStatus('Load VRM first before loading animations');
+                return;
+            }
+            
+            try {
+                updateLoadingStatus('Loading talking animation...');
+                
+                // Use the existing working loadFBX function
+                await loadFBX(file);
+                
+                // Save the loaded animation as talking animation
+                talkingAnimation = animationClip;
+                
+                // Play the animation immediately like the working system
+                if (currentAnimationAction) {
+                    currentAnimationAction.reset();
+                    currentAnimationAction.play();
+                }
+                
+                updateLoadingStatus('✅ Talking animation loaded and playing');
+                console.log('✅ Talking animation saved for TTS system');
+                
+            } catch (error) {
+                console.error('Error loading talking animation:', error);
+                updateLoadingStatus('❌ Failed to load talking animation');
+            }
+        }
+
+        // Animation control functions  
+        function startIdleAnimation() {
+            if (!vrm || !idleAnimation || isTalking) return;
+            
+            console.log('😴 Starting idle animation');
+            updateAnimationStatus('💤 Idle', '#4ecdc4');
+            
+            // Use the main animation system
+            animationClip = idleAnimation;
+            
+            // Stop current animation
+            if (currentAnimationAction) {
+                currentAnimationAction.stop();
+            }
+            
+            // Create and play idle animation using main system
+            if (currentMixer) {
+                currentAnimationAction = currentMixer.clipAction(idleAnimation);
+                currentAnimationAction.setLoop(THREE.LoopRepeat);
+                currentAnimationAction.reset();
+                currentAnimationAction.play();
+                
+                console.log('✅ Idle animation started on main mixer');
+            }
+        }
+        
+        function startTalkingAnimationFromTTS() {
+            console.log('🎤 TTS Start - VRM:', !!vrm, 'TalkingAnimation:', !!talkingAnimation);
+            if (!vrm || !talkingAnimation) {
+                console.log('🎤 TTS started but no VRM or talking animation loaded');
+                updateAnimationStatus('❌ No talking animation', '#ff6b6b');
+                return;
+            }
+            
+            console.log('🎤 Starting talking animation from TTS signal');
+            isTalking = true;
+            updateAnimationStatus('🗣️ Talking', '#ff6b6b');
+            
+            // Use the main animation system
+            animationClip = talkingAnimation;
+            
+            // Stop current animation
+            if (currentAnimationAction) {
+                currentAnimationAction.stop();
+            }
+            
+            // Create and play talking animation using main system
+            if (currentMixer) {
+                currentAnimationAction = currentMixer.clipAction(talkingAnimation);
+                currentAnimationAction.setLoop(THREE.LoopRepeat);
+                currentAnimationAction.reset();
+                currentAnimationAction.play();
+                
+                console.log('✅ Talking animation started on main mixer');
+            }
+            
+            updateLoadingStatus('🗣️ TTS talking animation started');
+        }
+        
+        function stopTalkingAnimationFromTTS() {
+            if (!isTalking) return;
+            
+            console.log('🤐 Stopping talking animation from TTS signal');
+            isTalking = false;
+            
+            // Stop current animation
+            if (currentAnimationAction) {
+                currentAnimationAction.stop();
+            }
+            
+            // Resume idle animation
+            startIdleAnimation();
+            
+            updateLoadingStatus('🤐 TTS talking animation stopped');
+        }
+        
+        // Manual control functions
+        function reconnectTTSServer() {
+            // Enable the checkbox first
+            document.getElementById('enableTTSWebSocket').checked = true;
+            
+            if (ttsWebSocket) {
+                ttsWebSocket.close();
+            }
+            updateWebSocketStatus('🟡 Connecting...', '#ffeb3b');
+            connectToTTSServer();
+        }
+        
+        function testTalkingAnimation() {
+            if (!talkingAnimation) {
+                updateLoadingStatus('No talking animation loaded');
+                return;
+            }
+            
+            // Simulate TTS start
+            startTalkingAnimationFromTTS();
+            
+            // Stop after 3 seconds
+            setTimeout(() => {
+                stopTalkingAnimationFromTTS();
+            }, 3000);
+        }
+
+        // Initialize the application
+        function initApp() {
+            console.log('THREE loaded:', !!THREE);
+            console.log('GLTFLoader available:', !!GLTFLoader);
+            console.log('OrbitControls available:', !!OrbitControls);
+            console.log('VRMLoaderPlugin available:', !!VRMLoaderPlugin);
+            console.log('VRMAnimationLoaderPlugin available:', !!VRMAnimationLoaderPlugin);
+            console.log('createVRMAnimationClip available:', !!createVRMAnimationClip);
+            
+            clock = new THREE.Clock();
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+            
+            // Initialize device list on page load
+            initializeDeviceList();
+            
+            // Auto-load default VRM and animations
+            loadDefaultVRM();
+            
+            init();
+        }
+
+        // Initialize the scene
+        function init() {
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x212121);
+            
+            // Camera
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 1.5, 3);
+            
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            // Note: ACESFilmicToneMapping and toneMappingExposure not available in r110
+            renderer.gammaOutput = true;
+            renderer.gammaFactor = 2.2;
+            document.getElementById('container').appendChild(renderer.domElement);
+            
+            // Controls
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.target.set(0, 1, 0);
+            
+            // Lighting (VRM compatible)
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(1, 1, 1);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            scene.add(directionalLight);
+            
+            // Grid helper
+            const gridHelper = new THREE.GridHelper(10, 10);
+            scene.add(gridHelper);
+            
+            setupEventListeners();
+            updateLoadingStatus('Scene initialized');
+            animate();
+        }
+        
+        function setupEventListeners() {
+            // File uploads
+            document.getElementById('vrmFile').addEventListener('change', loadVRM);
+            document.getElementById('loadDefaultVRM').addEventListener('click', loadDefaultVRM);
+            document.getElementById('vrmaFile').addEventListener('change', loadAnimation);
+            document.getElementById('roomFile').addEventListener('change', loadRoom);
+            document.getElementById('loadDemoRoom').addEventListener('click', loadDemoRoom);
+            document.getElementById('floorTextureFile').addEventListener('change', loadFloorTexture);
+            document.getElementById('clearFloorTexture').addEventListener('click', clearFloorTexture);
+            document.getElementById('clearAnimation').addEventListener('click', clearAnimation);
+            
+            // UI visibility controls
+            document.getElementById('closeUIBtn').addEventListener('click', hideUI);
+            document.getElementById('showUIBtn').addEventListener('click', showUI);
+            
+            // Unified audio sink selector
+            document.getElementById('audioSinkSelect').addEventListener('change', handleAudioSinkChange);
+            
+            // VRM manipulation mode buttons
+            document.getElementById('moveMode').addEventListener('click', () => setManipulationMode('move'));
+            document.getElementById('scaleMode').addEventListener('click', () => setManipulationMode('scale'));
+            document.getElementById('rotateMode').addEventListener('click', () => setManipulationMode('rotate'));
+            document.getElementById('resetVRM').addEventListener('click', resetVRMPosition);
+            
+            // VRM scale slider
+            document.getElementById('vrmScale').addEventListener('input', (e) => {
+                const scale = parseFloat(e.target.value);
+                document.getElementById('vrmScaleValue').textContent = scale.toFixed(1);
+                if (vrm) {
+                    vrm.scene.scale.setScalar(scale);
+                }
+            });
+            
+            // Snap to floor toggle
+            document.getElementById('snapToFloor').addEventListener('change', (e) => {
+                vrmManipulation.snapToFloor = e.target.checked;
+                if (vrmManipulation.snapToFloor && vrm) {
+                    vrm.scene.position.y = vrmManipulation.floorLevel;
+                }
+                updateLoadingStatus(`Floor snapping: ${vrmManipulation.snapToFloor ? 'ON' : 'OFF'}`);
+            });
+            
+            // Controls
+            document.getElementById('mouthThreshold').addEventListener('input', (e) => {
+                mouthThreshold = parseFloat(e.target.value);
+                document.getElementById('mouthValue').textContent = mouthThreshold;
+            });
+            
+            document.getElementById('bodyThreshold').addEventListener('input', (e) => {
+                bodyThreshold = parseFloat(e.target.value);
+                document.getElementById('bodyValue').textContent = bodyThreshold;
+            });
+            
+            document.getElementById('mouthGain').addEventListener('input', (e) => {
+                mouthGain = parseFloat(e.target.value) / 10;
+                document.getElementById('gainValue').textContent = mouthGain.toFixed(1);
+            });
+            
+            
+            document.getElementById('resetCamera').addEventListener('click', resetCamera);
+            
+            // Animation controls
+            document.getElementById('playAnimation').addEventListener('click', playAnimation);
+            document.getElementById('stopAnimation').addEventListener('click', stopAnimation);
+            document.getElementById('resetAnimation').addEventListener('click', resetAnimation);
+            
+            // Mouse events for VRM manipulation
+            renderer.domElement.addEventListener('mousedown', onMouseDown);
+            renderer.domElement.addEventListener('mousemove', onMouseMove);
+            renderer.domElement.addEventListener('mouseup', onMouseUp);
+            renderer.domElement.addEventListener('wheel', onMouseWheel);
+            
+            // Keyboard shortcuts
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+            
+            // Window resize
+            window.addEventListener('resize', onWindowResize);
+            
+            // Setup accordion functionality
+            setupAccordions();
+            
+            // TTS WebSocket UI Controls  
+            document.getElementById('loadIdleBtn').addEventListener('click', loadIdleAnimationFromFile);
+            document.getElementById('loadTalkingBtn').addEventListener('click', loadTalkingAnimationFromFile);
+            document.getElementById('reconnectTTSBtn').addEventListener('click', reconnectTTSServer);
+            document.getElementById('testTalkingBtn').addEventListener('click', testTalkingAnimation);
+            
+            // TTS WebSocket enable/disable checkbox
+            document.getElementById('enableTTSWebSocket').addEventListener('change', function(e) {
+                if (e.target.checked) {
+                    // Enable and connect TTS WebSocket
+                    connectToTTSServer();
+                } else {
+                    // Disable and disconnect TTS WebSocket
+                    if (ttsWebSocket) {
+                        ttsWebSocket.close();
+                        ttsWebSocket = null;
+                    }
+                    isConnectedToTTS = false;
+                    updateWebSocketStatus('🔴 Disconnected', '#ff6b6b');
+                    if (reconnectInterval) {
+                        clearInterval(reconnectInterval);
+                        reconnectInterval = null;
+                    }
+                }
+            });
+            
+        }
+        
+        function hideUI() {
+            uiState.isVisible = false;
+            document.getElementById('controls').classList.add('hidden');
+            document.getElementById('showUIBtn').classList.add('visible');
+            
+            // Also hide the info panel
+            const infoPanel = document.querySelector('.info');
+            if (infoPanel) {
+                infoPanel.style.opacity = '0';
+                infoPanel.style.transform = 'translateY(-20px)';
+                setTimeout(() => infoPanel.style.display = "none", 300);
+            }
+        }
+        
+        function showUI() {
+            uiState.isVisible = true;
+            document.getElementById('controls').classList.remove('hidden');
+            document.getElementById('showUIBtn').classList.remove('visible');
+            
+            // Also show the info panel
+            const infoPanel = document.querySelector('.info');
+            if (infoPanel) {
+                infoPanel.style.display = "block";
+                infoPanel.style.opacity = '1';
+                infoPanel.style.transform = 'translateY(0)';
+            }
+        }
+        
+        function toggleUI() {
+            if (uiState.isVisible) {
+                hideUI();
+            } else {
+                showUI();
+            }
+        }
+        
+        function onKeyDown(event) {
+            // Don't process keys when typing in input fields
+            if (event.target.matches('input, textarea, select')) return;
+            
+            const key = event.key.toLowerCase();
+            
+            // WASD movement keys
+            if (key === 'w') keyStates.w = true;
+            if (key === 'a') keyStates.a = true;
+            if (key === 's') keyStates.s = true;
+            if (key === 'd') keyStates.d = true;
+            
+            // Arrow keys for camera movement
+            if (key === 'arrowup') keyStates.arrowUp = true;
+            if (key === 'arrowdown') keyStates.arrowDown = true;
+            if (key === 'arrowleft') keyStates.arrowLeft = true;
+            if (key === 'arrowright') keyStates.arrowRight = true;
+            
+            // Ctrl key for rotation mode
+            if (key === 'control') keyStates.ctrl = true;
+            
+            // Toggle UI with 'H' key
+            if (key === 'h') {
+                toggleUI();
+            }
+            // Hide UI with 'Escape' key
+            else if (event.key === 'Escape') {
+                hideUI();
+            }
+            // Animation keybinds
+            else {
+                switch(event.key) {
+                    case '1':
+                        event.preventDefault();
+                        playAnimation();
+                        break;
+                    case '2':
+                        event.preventDefault();
+                        stopAnimation();
+                        break;
+                    case '3':
+                        event.preventDefault();
+                        resetAnimation();
+                        break;
+                }
+            }
+        }
+        
+        function onKeyUp(event) {
+            // Don't process keys when typing in input fields
+            if (event.target.matches('input, textarea, select')) return;
+            
+            const key = event.key.toLowerCase();
+            
+            // WASD movement keys
+            if (key === 'w') keyStates.w = false;
+            if (key === 'a') keyStates.a = false;
+            if (key === 's') keyStates.s = false;
+            if (key === 'd') keyStates.d = false;
+            
+            // Arrow keys for camera movement
+            if (key === 'arrowup') keyStates.arrowUp = false;
+            if (key === 'arrowdown') keyStates.arrowDown = false;
+            if (key === 'arrowleft') keyStates.arrowLeft = false;
+            if (key === 'arrowright') keyStates.arrowRight = false;
+            
+            // Ctrl key for rotation mode
+            if (key === 'control') keyStates.ctrl = false;
+        }
+        
+        function setManipulationMode(mode) {
+            vrmManipulation.mode = mode;
+            
+            // Update button styles
+            document.querySelectorAll('.manipulation-modes button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById(mode + 'Mode').classList.add('active');
+            
+            updateLoadingStatus(`VRM manipulation mode: ${mode}`);
+        }
+        
+        function onMouseDown(event) {
+            // Check if clicking on UI elements
+            const controlsElement = document.getElementById('controls');
+            const showUIBtn = document.getElementById('showUIBtn');
+            
+            if (controlsElement.contains(event.target) || showUIBtn.contains(event.target)) {
+                return; // Don't hide UI or manipulate VRM when clicking on UI
+            }
+            
+            // Check for Shift+click for VRM manipulation
+            if (event.shiftKey && vrm) {
+                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+                
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObject(vrm.scene, true);
+                
+                if (intersects.length > 0) {
+                    // Shift+clicked on VRM - start manipulation
+                    vrmManipulation.isDragging = true;
+                    vrmManipulation.isVrmSelected = true;
+                    vrmManipulation.lastMouseX = event.clientX;
+                    vrmManipulation.lastMouseY = event.clientY;
+                    
+                    // Disable orbit controls when manipulating VRM
+                    controls.enabled = false;
+                    
+                    updateLoadingStatus(`VRM selected - ${vrmManipulation.mode} mode active (Shift+drag to manipulate)`);
+                    event.preventDefault();
+                    return;
+                }
+            }
+            
+            // Regular click behavior
+            if (!vrm) {
+                // If no VRM and clicking off-screen, hide UI
+                if (uiState.isVisible) {
+                    hideUI();
+                }
+                return;
+            }
+            
+            // Check for regular VRM click (for spring bone test)
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(vrm.scene, true);
+            
+            if (intersects.length > 0) {
+                // Regular clicked on VRM
+                updateLoadingStatus('VRM clicked - Hold Shift and drag to manipulate');
+            } else {
+                // Clicked on empty space - hide UI if visible
+                if (uiState.isVisible) {
+                    hideUI();
+                }
+            }
+        }
+        
+        function onMouseMove(event) {
+            if (!vrmManipulation.isDragging || !vrm) return;
+            
+            const deltaX = event.clientX - vrmManipulation.lastMouseX;
+            const deltaY = event.clientY - vrmManipulation.lastMouseY;
+            
+            switch (vrmManipulation.mode) {
+                case 'move':
+                    // Move VRM in world space
+                    const moveSpeed = vrmManipulation.dragSpeed;
+                    vrm.scene.position.x += deltaX * moveSpeed;
+                    
+                    if (vrmManipulation.snapToFloor) {
+                        // Keep VRM on the floor when snapping is enabled
+                        vrm.scene.position.y = vrmManipulation.floorLevel;
+                        // Use deltaY for Z movement (drag up = move forward, drag down = move back)
+                        vrm.scene.position.z += deltaY * moveSpeed;
+                    } else {
+                        // Allow free Y movement when snapping is disabled (drag up = move up, drag down = move down)
+                        vrm.scene.position.y -= deltaY * moveSpeed;
+                    }
+                    break;
+                    
+                case 'scale':
+                    // Scale VRM based on mouse movement - drag up to make bigger, drag down to make smaller
+                    const scaleChange = -deltaY * vrmManipulation.scaleSpeed;
+                    const newScale = Math.max(0.1, vrm.scene.scale.x + scaleChange);
+                    vrm.scene.scale.setScalar(newScale);
+                    
+                    // Update scale slider
+                    document.getElementById('vrmScale').value = newScale;
+                    document.getElementById('vrmScaleValue').textContent = newScale.toFixed(1);
+                    break;
+                    
+                case 'rotate':
+                    // Rotate VRM around Y-axis
+                    const rotateSpeed = vrmManipulation.rotateSpeed;
+                    vrm.scene.rotation.y += deltaX * rotateSpeed;
+                    
+                    if (!vrmManipulation.snapToFloor) {
+                        // Only allow X-axis rotation when not snapped to floor
+                        vrm.scene.rotation.x += deltaY * rotateSpeed;
+                    }
+                    break;
+            }
+            
+            vrmManipulation.lastMouseX = event.clientX;
+            vrmManipulation.lastMouseY = event.clientY;
+        }
+        
+        function onMouseUp(event) {
+            if (vrmManipulation.isDragging) {
+                vrmManipulation.isDragging = false;
+                
+                // Re-enable orbit controls
+                controls.enabled = true;
+                
+                updateLoadingStatus('VRM manipulation ended');
+            }
+        }
+        
+        function onMouseWheel(event) {
+            // Let scroll wheel only control camera zoom, not VRM scaling
+            // Remove VRM scaling on scroll to avoid conflicts with camera controls
+            return;
+        }
+        
+        function resetVRMPosition() {
+            if (!vrm) return;
+            
+            vrm.scene.position.set(0, vrmManipulation.snapToFloor ? vrmManipulation.floorLevel : 0, 0);
+            vrm.scene.rotation.set(0, Math.PI, 0); // Rotate 180 degrees to face front
+            vrm.scene.scale.setScalar(1);
+            
+            // Update scale slider
+            document.getElementById('vrmScale').value = 1;
+            document.getElementById('vrmScaleValue').textContent = '1.0';
+            
+            updateLoadingStatus('VRM position reset' + (vrmManipulation.snapToFloor ? ' (snapped to floor)' : ''));
+        }
+        
+        function loadFloorTexture(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            updateLoadingStatus('Loading floor texture...');
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const loader = new THREE.TextureLoader();
+                    customFloorTexture = loader.load(e.target.result);
+                    customFloorTexture.wrapS = THREE.RepeatWrapping;
+                    customFloorTexture.wrapT = THREE.RepeatWrapping;
+                    customFloorTexture.repeat.set(4, 4);
+                    
+                    updateLoadingStatus('Floor texture loaded successfully');
+                    
+                    // Only auto-refresh if it's the demo room, not a custom room
+                    if (room && isDemoRoomLoaded) {
+                        loadDemoRoom();
+                    } else if (room && !isDemoRoomLoaded) {
+                        updateLoadingStatus('Floor texture ready - only applies to demo room currently');
+                    }
+                };
+                img.onerror = function() {
+                    updateLoadingStatus('Error loading floor texture');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        function clearFloorTexture() {
+            customFloorTexture = null;
+            document.getElementById('floorTextureFile').value = '';
+            updateLoadingStatus('Floor texture cleared - using default');
+            
+            // Only auto-refresh if it's the demo room
+            if (room && isDemoRoomLoaded) {
+                loadDemoRoom();
+            }
+        }
+        
+        function createFloorTexture() {
+            // Use custom texture if uploaded, otherwise create procedural texture
+            if (customFloorTexture) {
+                return customFloorTexture;
+            }
+            
+            // Create a canvas for the procedural floor texture
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            
+            // Create a wood-like pattern
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(0, 0, 256, 256);
+            
+            // Add wood grain lines
+            ctx.strokeStyle = '#654321';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 256; i += 32) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, 256);
+                ctx.stroke();
+            }
+            
+            // Add horizontal wood lines
+            ctx.strokeStyle = '#A0522D';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < 256; i += 64) {
+                ctx.beginPath();
+                ctx.moveTo(0, i);
+                ctx.lineTo(256, i);
+                ctx.stroke();
+            }
+            
+            // Add some variation
+            ctx.fillStyle = 'rgba(139, 69, 19, 0.3)';
+            for (let i = 0; i < 20; i++) {
+                const x = Math.random() * 256;
+                const y = Math.random() * 256;
+                const w = Math.random() * 40 + 10;
+                const h = Math.random() * 10 + 2;
+                ctx.fillRect(x, y, w, h);
+            }
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set(4, 4);
+            
+            return texture;
+        }
+        
+        function loadDemoRoom() {
+            const textureType = customFloorTexture ? 'custom' : 'default wood';
+            updateLoadingStatus(`Creating demo room with ${textureType} floor...`);
+            
+            if (room) {
+                scene.remove(room);
+            }
+            
+            room = new THREE.Group();
+            isDemoRoomLoaded = true; // Mark as demo room
+            
+            // Create textured floor
+            const floorTexture = createFloorTexture();
+            const floorGeometry = new THREE.PlaneGeometry(10, 10);
+            const floorMaterial = new THREE.MeshLambertMaterial({ 
+                map: floorTexture,
+                color: 0xFFFFFF
+            });
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            floor.position.y = vrmManipulation.floorLevel;
+            room.add(floor);
+            
+            // Back wall
+            const wallMaterial = new THREE.MeshLambertMaterial({ color: 0xF5F5DC });
+            const backWall = new THREE.Mesh(new THREE.PlaneGeometry(10, 5), wallMaterial);
+            backWall.position.set(0, 2.5, -5);
+            backWall.receiveShadow = true;
+            room.add(backWall);
+            
+            // Left wall
+            const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(10, 5), wallMaterial);
+            leftWall.position.set(-5, 2.5, 0);
+            leftWall.rotation.y = Math.PI / 2;
+            leftWall.receiveShadow = true;
+            room.add(leftWall);
+            
+            // Right wall
+            const rightWall = new THREE.Mesh(new THREE.PlaneGeometry(10, 5), wallMaterial);
+            rightWall.position.set(5, 2.5, 0);
+            rightWall.rotation.y = -Math.PI / 2;
+            rightWall.receiveShadow = true;
+            room.add(rightWall);
+            
+            // Furniture
+            const furnitureMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+            
+            const table = new THREE.Mesh(new THREE.BoxGeometry(2, 0.1, 1), furnitureMaterial);
+            table.position.set(2, 0.8, -2);
+            table.castShadow = true;
+            room.add(table);
+            
+            const chair = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1, 0.5), furnitureMaterial);
+            chair.position.set(1, 0.5, -1.5);
+            chair.castShadow = true;
+            room.add(chair);
+            
+            scene.add(room);
+            updateLoadingStatus(`Demo room created with ${textureType} floor - VRM will snap to floor`);
+        }
+        
+        async function loadVRM(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            updateLoadingStatus('Loading VRM avatar...');
+            const url = URL.createObjectURL(file);
+            
+            const loader = new GLTFLoader();
+            loader.crossOrigin = 'anonymous';
+
+            // Register VRM loader plugin
+            loader.register((parser) => {
+                return new VRMLoaderPlugin(parser);
+            });
+
+            try {
+                const gltf = await new Promise((resolve, reject) => {
+                    loader.load(url, resolve, undefined, reject);
+                });
+
+                if (vrm) {
+                    scene.remove(vrm.scene);
+                    if (vrm.dispose) vrm.dispose();
+                }
+
+                vrm = gltf;
+                scene.add(gltf.scene);
+                
+                // Scale and position VRM
+                vrm.scene.scale.setScalar(1);
+                vrm.scene.position.set(0, vrmManipulation.snapToFloor ? vrmManipulation.floorLevel : 0, 0);
+                vrm.scene.rotation.set(0, 0, 0);
+                
+                // Enable shadows
+                vrm.scene.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                    }
+                });
+                
+                // Reset manipulation state
+                vrmManipulation.isVrmSelected = false;
+                vrmManipulation.isDragging = false;
+                
+                const snapStatus = vrmManipulation.snapToFloor ? ' (snapped to floor)' : '';
+                updateLoadingStatus('VRM avatar loaded successfully - Click to manipulate' + snapStatus);
+                
+                // Display available blend shapes
+                if (vrm.userData.vrm && vrm.userData.vrm.expressionManager) {
+                    const blendShapes = Object.keys(vrm.userData.vrm.expressionManager._expressionMap || {});
+                    console.log('🎭 Available blend shapes:', blendShapes);
+                    console.log('🎭 Total blend shapes:', blendShapes.length);
+                }
+                
+                // Auto-start idle animation if WebSocket is connected and idle animation exists
+                if (isConnectedToTTS && idleAnimation) {
+                    console.log('🎭 Auto-starting idle animation (WebSocket connected)');
+                    startIdleAnimation();
+                }
+                
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error('Error loading VRM:', error);
+                updateLoadingStatus('Error loading VRM file');
+                URL.revokeObjectURL(url);
+            }
+        }
+        
+        function loadRoom(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            updateLoadingStatus('Loading room environment...');
+            const url = URL.createObjectURL(file);
+            
+            const loader = new GLTFLoader();
+            
+            loader.load(url, (gltf) => {
+                if (room) {
+                    scene.remove(room);
+                }
+                
+                room = gltf.scene;
+                isDemoRoomLoaded = false; // Mark as custom room
+                scene.add(room);
+                
+                // Enable shadows for room
+                room.traverse((child) => {
+                    if (child.isMesh) {
+                        child.receiveShadow = true;
+                        if (child.material) {
+                            child.material.side = THREE.DoubleSide;
+                        }
+                    }
+                });
+                
+                // Auto-scale room if it's too large/small
+                const box = new THREE.Box3().setFromObject(room);
+                const size = box.getSize(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.y, size.z);
+                
+                if (maxDim > 10) {
+                    const scale = 10 / maxDim;
+                    room.scale.setScalar(scale);
+                } else if (maxDim < 2) {
+                    const scale = 2 / maxDim;
+                    room.scale.setScalar(scale);
+                }
+                
+                updateLoadingStatus('Custom room environment loaded successfully');
+                URL.revokeObjectURL(url);
+            }, undefined, (error) => {
+                console.error('Error loading room:', error);
+                updateLoadingStatus('Error loading room');
+                URL.revokeObjectURL(url);
+            });
+        }
+        
+        // Enhanced Audio Setup with Device Selection
+
+        // Initialize device listing on page load (cross-browser compatible)
+        async function initializeDeviceList() {
+            try {
+                // Try to enumerate devices without permission first
+                let devices = await navigator.mediaDevices.enumerateDevices();
+                
+                // Check if we have device labels
+                const hasLabels = devices.some(device => device.label && device.label.trim() !== '');
+                
+                if (!hasLabels) {
+                    console.log('🎤 No device labels available, requesting permission...');
+                    
+                    // Request permission first to get device labels
+                    try {
+                        // Request minimal audio permission to unlock device labels
+                        const tempStream = await navigator.mediaDevices.getUserMedia({ 
+                            audio: { 
+                                echoCancellation: false,
+                                noiseSuppression: false,
+                                autoGainControl: false
+                            } 
+                        });
+                        
+                        // Stop the temporary stream immediately
+                        tempStream.getTracks().forEach(track => track.stop());
+                        
+                        // Now enumerate devices again with labels
+                        devices = await navigator.mediaDevices.enumerateDevices();
+                        console.log('🎤 Permission granted, devices refreshed');
+                        
+                    } catch (permError) {
+                        console.log('🎤 Permission denied, showing generic device list');
+                        updateLoadingStatus('⚠️ Grant microphone permission to see device names');
+                        // Continue with generic device listing
+                    }
+                }
+                
+                // Populate device lists with enhanced browser compatibility
+                populateDeviceListsEnhanced(devices);
+                
+                // Listen for device changes (cross-browser)
+                if (navigator.mediaDevices.ondevicechange !== undefined) {
+                    navigator.mediaDevices.ondevicechange = async () => {
+                        console.log('🎤 Device change detected, refreshing list...');
+                        const newDevices = await navigator.mediaDevices.enumerateDevices();
+                        populateDeviceListsEnhanced(newDevices);
+                    };
+                }
+                
+            } catch (error) {
+                console.log('Device enumeration without permission failed:', error);
+                // Fallback: Show basic options without device names
+                populateDeviceListsFallback();
+            }
+        }
+        
+        // Enhanced device population with better browser compatibility
+        function populateDeviceListsEnhanced(devices) {
+            const audioSinkSelect = document.getElementById('audioSinkSelect');
+            if (!audioSinkSelect) return;
+            
+            // Clear existing options
+            audioSinkSelect.innerHTML = '';
+            
+            // Always add basic options
+            audioSinkSelect.add(new Option('🔇 None', 'none'));
+            audioSinkSelect.add(new Option('💻 System Audio (Screen Capture)', 'system'));
+            
+            // Group devices by type for better organization
+            const inputs = devices.filter(d => d.kind === 'audioinput');
+            const outputs = devices.filter(d => d.kind === 'audiooutput');
+            
+            // Add input devices (microphones, virtual cables)
+            if (inputs.length > 0) {
+                // Add separator
+                const inputHeader = new Option('--- Microphones & Inputs ---', '');
+                inputHeader.disabled = true;
+                audioSinkSelect.add(inputHeader);
+                
+                inputs.forEach(device => {
+                    let label = device.label || `Microphone ${device.deviceId.slice(0, 8)}...`;
+                    
+                    // Enhance label with device type detection
+                    if (label.toLowerCase().includes('cable')) label = '🔗 ' + label;
+                    else if (label.toLowerCase().includes('virtual')) label = '🎛️ ' + label;
+                    else if (label.toLowerCase().includes('voicemeeter')) label = '🎚️ ' + label;
+                    else if (label.toLowerCase().includes('stereo mix')) label = '🔊 ' + label;
+                    else label = '🎤 ' + label;
+                    
+                    audioSinkSelect.add(new Option(label, 'mic-' + device.deviceId));
+                });
+            }
+            
+            // Add output devices (for reference/virtual cable setup)
+            if (outputs.length > 0) {
+                // Add separator
+                const outputHeader = new Option('--- Audio Outputs (Reference) ---', '');
+                outputHeader.disabled = true;
+                audioSinkSelect.add(outputHeader);
+                
+                outputs.forEach(device => {
+                    let label = device.label || `Speaker ${device.deviceId.slice(0, 8)}...`;
+                    
+                    // Enhance label with device type detection
+                    if (label.toLowerCase().includes('cable')) label = '🔗 ' + label;
+                    else if (label.toLowerCase().includes('virtual')) label = '🎛️ ' + label;
+                    else if (label.toLowerCase().includes('voicemeeter')) label = '🎚️ ' + label;
+                    else label = '🔊 ' + label;
+                    
+                    audioSinkSelect.add(new Option(label + ' (Output)', 'out-' + device.deviceId));
+                });
+            }
+            
+            console.log(`🎤 Found ${inputs.length} inputs and ${outputs.length} outputs`);
+        }
+        
+        // Fallback device list when permission is denied
+        function populateDeviceListsFallback() {
+            const audioSinkSelect = document.getElementById('audioSinkSelect');
+            if (!audioSinkSelect) return;
+            
+            audioSinkSelect.innerHTML = '';
+            audioSinkSelect.add(new Option('🔇 None', 'none'));
+            audioSinkSelect.add(new Option('💻 System Audio (Screen Capture)', 'system'));
+            audioSinkSelect.add(new Option('🎤 Default Microphone', 'mic-default'));
+            audioSinkSelect.add(new Option('⚠️ Grant permission to see more devices', ''));
+        }
+        
+        // Populate unified audio device/sink selector
+        function populateDeviceLists(devices) {
+            const audioInputs = devices.filter(device => device.kind === 'audioinput');
+            const audioOutputs = devices.filter(device => device.kind === 'audiooutput');
+
+            const sinkSelect = document.getElementById('audioSinkSelect');
+            sinkSelect.innerHTML = `
+                <option value="none">🔇 No Audio Monitoring</option>
+                <option value="system">🖥️ System Audio (Screen Capture)</option>
+                <option value="mic-default">🎤 Default Microphone</option>
+            `;
+
+            // Add input devices (microphones, virtual cables)
+            audioInputs.forEach((device, index) => {
+                const option = document.createElement('option');
+                option.value = 'mic-' + device.deviceId;
+                option.text = device.label || `🎤 Microphone ${index + 1}`;
+                
+                // Add special icons for known virtual cables
+                if (device.label.toLowerCase().includes('cable')) {
+                    option.text = '🔌 ' + (device.label || `Virtual Cable ${index + 1}`);
+                } else if (device.label.toLowerCase().includes('voicemeeter')) {
+                    option.text = '🎚️ ' + (device.label || `Voicemeeter ${index + 1}`);
+                } else if (device.label.toLowerCase().includes('virtual')) {
+                    option.text = '🎛️ ' + (device.label || `Virtual Device ${index + 1}`);
+                }
+                
+                sinkSelect.appendChild(option);
+            });
+
+            // Add output devices (for monitoring via virtual routing)
+            if (audioOutputs.length > 0) {
+                // Add a separator
+                const separator = document.createElement('option');
+                separator.text = '━━━ Output Devices (for routing) ━━━';
+                separator.disabled = true;
+                sinkSelect.appendChild(separator);
+                
+                audioOutputs.forEach((device, index) => {
+                    const option = document.createElement('option');
+                    option.value = 'out-' + device.deviceId;
+                    option.text = device.label || `🔊 Output ${index + 1}`;
+                    
+                    // Add special icons for known virtual cables and outputs
+                    if (device.label.toLowerCase().includes('cable')) {
+                        option.text = '🔌 ' + (device.label || `Virtual Cable Out ${index + 1}`);
+                    } else if (device.label.toLowerCase().includes('voicemeeter')) {
+                        option.text = '🎚️ ' + (device.label || `Voicemeeter Out ${index + 1}`);
+                    } else if (device.label.toLowerCase().includes('virtual')) {
+                        option.text = '🎛️ ' + (device.label || `Virtual Output ${index + 1}`);
+                    } else if (device.label.toLowerCase().includes('speakers')) {
+                        option.text = '🔊 ' + (device.label || `Speakers ${index + 1}`);
+                    } else if (device.label.toLowerCase().includes('headphones')) {
+                        option.text = '🎧 ' + (device.label || `Headphones ${index + 1}`);
+                    }
+                    
+                    sinkSelect.appendChild(option);
+                });
+            }
+            
+            // Update help text
+            const helpText = document.querySelector('#audioSinkSelect').nextElementSibling;
+            helpText.textContent = `Found ${audioInputs.length} inputs, ${audioOutputs.length} outputs`;
+        }
+
+        function toggleMicrophone() {
+            if (!audioContext) {
+                setupAudio();
+            }
+        }
+        
+        function updateVRMFromAudio() {
+            if (!vrm || !analyser) return;
+            
+            analyser.getByteFrequencyData(dataArray);
+            
+            // Calculate volume (VU-VRM style)
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                sum += dataArray[i];
+            }
+            currentVolume = (sum / dataArray.length) / 255 * 100;
+            
+            // Update VU meter
+            document.getElementById('vuLevel').style.width = currentVolume + '%';
+            
+            
+            // Apply phoneme-based mouth animation if available, otherwise fallback to volume
+            updateMouthAnimation();
+        }
+        
+        // Enhanced mouth animation with phoneme support
+        function updateMouthAnimation() {
+            if (!vrm || !vrm.userData || !vrm.userData.vrm || !vrm.userData.vrm.expressionManager) return;
+            
+            const expressionManager = vrm.userData.vrm.expressionManager;
+            
+            // Check if we have phoneme data and are in TTS mode
+            if (currentPhonemes.length > 0 && phonemeStartTime > 0) {
+                const currentTime = performance.now();
+                const elapsedTime = currentTime - phonemeStartTime;
+                const phonemeDuration = 80; // 80ms per phoneme for quicker transitions
+                const targetPhonemeIndex = Math.floor(elapsedTime / phonemeDuration);
+                
+                if (targetPhonemeIndex < currentPhonemes.length) {
+                    const phoneme = currentPhonemes[targetPhonemeIndex];
+                    const blendShapes = phonemeToBlendShape[phoneme] || phonemeToBlendShape['SIL'];
+                    
+                    // Reset all mouth shapes
+                    expressionManager.setValue('aa', 0);
+                    expressionManager.setValue('ih', 0);
+                    expressionManager.setValue('ou', 0);
+                    expressionManager.setValue('ee', 0);
+                    expressionManager.setValue('oh', 0);
+                    
+                    // Apply phoneme-specific blend shapes
+                    Object.entries(blendShapes).forEach(([shape, intensity]) => {
+                        expressionManager.setValue(shape, intensity * mouthGain);
+                    });
+                    
+                    expressionManager.update();
+                    currentPhonemeIndex = targetPhonemeIndex;
+                } else {
+                    // End of phoneme sequence, clear mouth animation
+                    clearMouthAnimation();
+                }
+            } else {
+                // Fallback to volume-based animation (original VU-VRM behavior)
+                if (currentVolume > mouthThreshold) {
+                    const mouthIntensity = Math.min((currentVolume - mouthThreshold) * mouthGain * 0.1, 1);
+                    
+                    // Apply various mouth shapes based on volume
+                    expressionManager.setValue('aa', mouthIntensity * 0.8);
+                    expressionManager.setValue('oh', mouthIntensity * 0.6);
+                    expressionManager.update();
+                } else {
+                    clearMouthAnimation();
+                }
+            }
+        }
+        
+        // Clear mouth animation
+        function clearMouthAnimation() {
+            if (!vrm || !vrm.userData || !vrm.userData.vrm || !vrm.userData.vrm.expressionManager) return;
+            
+            const expressionManager = vrm.userData.vrm.expressionManager;
+            expressionManager.setValue('aa', 0);
+            expressionManager.setValue('ih', 0);
+            expressionManager.setValue('ou', 0);
+            expressionManager.setValue('ee', 0);
+            expressionManager.setValue('oh', 0);
+            expressionManager.update();
+        }
+        
+        // Start phoneme-based animation
+        function startPhonemeAnimation(text) {
+            currentPhonemes = textToPhonemes(text);
+            phonemeStartTime = performance.now();
+            currentPhonemeIndex = 0;
+            console.log('Starting phoneme animation:', currentPhonemes);
+            
+            // Debug: Check available blend shapes
+            if (vrm && vrm.userData && vrm.userData.vrm && vrm.userData.vrm.expressionManager) {
+                const manager = vrm.userData.vrm.expressionManager;
+                console.log('Available blend shapes:', Object.keys(manager._expressionMap || {}));
+            }
+        }
+        
+        // Stop phoneme-based animation
+        function stopPhonemeAnimation() {
+            currentPhonemes = [];
+            phonemeStartTime = 0;
+            currentPhonemeIndex = 0;
+            clearMouthAnimation();
+            
+            // Body movement removed to prevent conflicts with VRMA animations
+        }
+        
+        // System Audio Detection for TTS/Audio Sink Monitoring
+        async function enableSystemAudio() {
+            try {
+                updateLoadingStatus('Requesting system audio access...');
+                
+                // Request screen capture with audio - this captures system audio
+                systemAudioStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: false,
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false,
+                        sampleRate: 44100
+                    }
+                });
+                
+                // Create separate audio context for system audio
+                systemAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+                systemAnalyser = systemAudioContext.createAnalyser();
+                systemAnalyser.fftSize = 256;
+                systemAnalyser.smoothingTimeConstant = 0.3;
+                
+                // Connect system audio stream to analyser
+                const systemSource = systemAudioContext.createMediaStreamSource(systemAudioStream);
+                systemSource.connect(systemAnalyser);
+                
+                systemDataArray = new Uint8Array(systemAnalyser.frequencyBinCount);
+                
+                // Set monitoring mode to system
+                monitoringMode = 'system';
+                
+                // Show talking animation controls
+                document.getElementById('talkingAnimationGroup').style.display = 'block';
+                
+                updateLoadingStatus('🖥️ System audio monitoring enabled - load talking animation');
+                
+            } catch (error) {
+                console.error('System audio access error:', error);
+                updateLoadingStatus('System audio access denied or failed');
+            }
+        }
+        
+        
+        // Setup monitoring for specific output devices (using virtual cable loopback)
+        async function setupOutputMonitoring(outputDeviceId) {
+            try {
+                updateLoadingStatus('Setting up output monitoring...');
+                
+                // Note: Direct output monitoring isn't possible with Web Audio API
+                // This is a workaround using virtual cable inputs
+                // Users need to route their output through a virtual cable input
+                
+                if (outputDeviceId === 'default') {
+                    updateLoadingStatus('Output monitoring: Use virtual cable or system audio mode');
+                    return;
+                }
+                
+                // Try to find a corresponding virtual cable input
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const inputs = devices.filter(d => d.kind === 'audioinput');
+                
+                // Look for virtual cable inputs that might be receiving from this output
+                const virtualInputs = inputs.filter(device => 
+                    device.label.toLowerCase().includes('cable') ||
+                    device.label.toLowerCase().includes('voicemeeter') ||
+                    device.label.toLowerCase().includes('virtual')
+                );
+                
+                if (virtualInputs.length > 0) {
+                    updateLoadingStatus(`Found ${virtualInputs.length} virtual inputs - use input selector for monitoring`);
+                } else {
+                    updateLoadingStatus('No virtual cables found - use system audio mode or setup virtual routing');
+                }
+                
+            } catch (error) {
+                console.error('Output monitoring setup error:', error);
+                updateLoadingStatus('Output monitoring setup failed - try virtual cable routing');
+            }
+        }
+        
+        // Enhanced system audio detection with multiple monitoring modes
+        function updateSystemAudioDetection() {
+            if (!vrm) return;
+            
+            let audioVolume = 0;
+            
+            // Choose audio source based on monitoring mode
+            if (monitoringMode === 'system' && systemAnalyser && systemDataArray) {
+                // Monitor system audio via screen capture
+                systemAnalyser.getByteFrequencyData(systemDataArray);
+                let sum = 0;
+                for (let i = 0; i < systemDataArray.length; i++) {
+                    sum += systemDataArray[i];
+                }
+                audioVolume = (sum / systemDataArray.length) / 255 * 100;
+            } else if (monitoringMode === 'input' && analyser && dataArray) {
+                // Monitor selected input device (virtual cable)
+                analyser.getByteFrequencyData(dataArray);
+                let sum = 0;
+                for (let i = 0; i < dataArray.length; i++) {
+                    sum += dataArray[i];
+                }
+                audioVolume = (sum / dataArray.length) / 255 * 100;
+            }
+            
+            const currentTime = performance.now();
+            
+            // Check if audio is above threshold (indicating TTS/audio playing)
+            if (audioVolume > talkingThreshold) {
+                lastTalkingTime = currentTime;
+                
+                // Start talking animation if not already talking
+                if (!isTalking && talkingAnimation && currentMixer) {
+                    isTalking = true;
+                    
+                    // Stop current animation if playing
+                    if (currentAnimationAction) {
+                        currentAnimationAction.stop();
+                    }
+                    
+                    // Play talking animation
+                    talkingAnimationAction = currentMixer.clipAction(talkingAnimation);
+                    talkingAnimationAction.setLoop(THREE.LoopRepeat);
+                    talkingAnimationAction.reset();
+                    talkingAnimationAction.play();
+                    
+                    console.log(`🗣️ Started talking animation - ${monitoringMode} audio detected (${audioVolume.toFixed(1)}%)`);
+                }
+            } else if (isTalking && (currentTime - lastTalkingTime) > silenceDelay) {
+                // Stop talking animation after silence delay
+                isTalking = false;
+                
+                if (talkingAnimationAction) {
+                    talkingAnimationAction.stop();
+                    talkingAnimationAction = null;
+                }
+                
+                // Resume previous animation if it was playing
+                if (currentAnimationAction && animationClip) {
+                    currentAnimationAction.reset();
+                    currentAnimationAction.play();
+                }
+                
+                console.log(`🤐 Stopped talking animation - silence detected (${monitoringMode} mode)`);
+            }
+        }
+        
+        // Handle unified audio sink selection
+        async function handleAudioSinkChange() {
+            const sinkSelect = document.getElementById('audioSinkSelect');
+            const selectedValue = sinkSelect.value;
+            
+            // Stop any current audio monitoring
+            if (audioContext && audioContext.state !== 'closed') {
+                audioContext.close();
+            }
+            if (systemAudioContext && systemAudioContext.state !== 'closed') {
+                systemAudioContext.close();
+            }
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            if (systemAudioStream) {
+                systemAudioStream.getTracks().forEach(track => track.stop());
+                systemAudioStream = null;
+            }
+            
+            // Reset monitoring state
+            monitoringMode = 'none';
+            isTalking = false;
+            const volumeBar = document.getElementById('volumeBar');
+            if (volumeBar) {
+                volumeBar.style.width = '0%';
+            }
+            
+            // Handle different sink types
+            if (selectedValue === 'none') {
+                updateLoadingStatus('🔇 Audio monitoring disabled');
+                document.getElementById('talkingAnimationGroup').style.display = 'none';
+                return;
+            }
+            
+            if (selectedValue === 'system') {
+                // Enable system audio monitoring
+                await enableSystemAudio();
+                return;
+            }
+            
+            if (selectedValue.startsWith('mic-')) {
+                // Enable microphone input monitoring
+                const deviceId = selectedValue.replace('mic-', '');
+                await setupMicrophoneMonitoring(deviceId);
+                return;
+            }
+            
+            if (selectedValue.startsWith('out-')) {
+                // Output device selected - show helper message
+                const deviceId = selectedValue.replace('out-', '');
+                await setupOutputMonitoring(deviceId);
+                return;
+            }
+        }
+        
+        // Setup microphone monitoring for specified device
+        async function setupMicrophoneMonitoring(deviceId) {
+            try {
+                updateLoadingStatus('🎤 Requesting microphone access...');
+                
+                // Request microphone access with specific device
+                const constraints = {
+                    audio: deviceId === 'default' ? true : { deviceId: { exact: deviceId } }
+                };
+                
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                
+                // Create audio context and analyser
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                
+                // Connect microphone stream to analyser
+                const source = audioContext.createMediaStreamSource(stream);
+                source.connect(analyser);
+                
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                
+                // Set monitoring mode
+                monitoringMode = 'input';
+                
+                updateLoadingStatus('🎤 Microphone monitoring enabled');
+                
+            } catch (error) {
+                console.error('Microphone access error:', error);
+                updateLoadingStatus('❌ Microphone access denied or failed');
+                
+                // Reset selector to none
+                document.getElementById('audioSinkSelect').value = 'none';
+            }
+        }
+        
+        function resetCamera() {
+            camera.position.set(0, 1.5, 3);
+            controls.target.set(0, 1, 0);
+            controls.update();
+        }
+        
+        function toggleAnimation() {
+            animationEnabled = !animationEnabled;
+            document.getElementById('toggleAnimation').textContent = 
+                animationEnabled ? 'Disable Animation' : 'Enable Animation';
+        }
+        
+        function updateLoadingStatus(message) {
+            document.getElementById('loadingStatus').textContent = message;
+        }
+        
+        // Universal Animation Loader - VRMA and FBX support
+        async function loadAnimation(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const fileExtension = file.name.toLowerCase().split('.').pop();
+            
+            if (fileExtension === 'vrma') {
+                await loadVRMA(file);
+            } else if (fileExtension === 'fbx') {
+                await loadFBX(file);
+            } else {
+                updateLoadingStatus('Unsupported animation format. Use .vrma or .fbx files.');
+            }
+        }
+        
+        // VRMA Animation functions - Compatible with Three.js 0.110 and VRM 0.3.0
+        async function loadVRMA(file) {
+            if (!file) return;
+            
+            if (!vrm) {
+                updateLoadingStatus('Please load a VRM avatar first');
+                return;
+            }
+
+            try {
+                updateLoadingStatus('Loading VRMA animation...');
+                const url = URL.createObjectURL(file);
+                
+                const loader = new GLTFLoader();
+                loader.crossOrigin = 'anonymous';
+                
+                // Register VRMA loader plugin
+                loader.register((parser) => {
+                    return new VRMAnimationLoaderPlugin(parser);
+                });
+
+                // Load VRMA file
+                const gltf = await new Promise((resolve, reject) => {
+                    loader.load(
+                        url,
+                        (gltf) => resolve(gltf),
+                        undefined,
+                        (error) => reject(error)
+                    );
+                });
+
+                const vrmAnimations = gltf.userData.vrmAnimations;
+                if (!vrmAnimations || vrmAnimations.length === 0) {
+                    updateLoadingStatus('No VRM animations found in file');
+                    return;
+                }
+
+                // Use the first animation
+                currentVrmAnimation = vrmAnimations[0];
+                
+                // Create new mixer for VRMA
+                if (currentMixer) {
+                    currentMixer.stopAllAction();
+                }
+                
+                currentMixer = new THREE.AnimationMixer(vrm.scene);
+
+                // Create animation clip using proper VRM reference
+                if (createVRMAnimationClip && vrm.userData.vrm) {
+                    const clip = createVRMAnimationClip(currentVrmAnimation, vrm.userData.vrm);
+                    if (clip) {
+                        // Reset VRM pose
+                        if (vrm.userData.vrm.humanoid) {
+                            vrm.userData.vrm.humanoid.resetNormalizedPose();
+                        }
+                        if (vrm.userData.vrm.lookAt) {
+                            vrm.userData.vrm.lookAt.reset();
+                            // Enable auto-update for look-at if the animation has look-at data
+                            vrm.userData.vrm.lookAt.autoUpdate = currentVrmAnimation.lookAtTrack != null;
+                        }
+                        
+                        animationClip = clip;
+                        currentAnimationAction = currentMixer.clipAction(animationClip);
+                        currentAnimationAction.setLoop(THREE.LoopRepeat);
+                        updateLoadingStatus('VRMA animation loaded successfully');
+                    } else {
+                        updateLoadingStatus('Error creating VRMA animation clip');
+                    }
+                } else {
+                    updateLoadingStatus('VRMA animation tools not available');
+                }
+
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error('Error loading VRMA animation:', error);
+                updateLoadingStatus('Failed to load VRMA animation');
+            }
+        }
+        
+        // FBX/Mixamo Animation loading function (based on working reference)
+        async function loadFBX(file) {
+            if (!file) return;
+            
+            if (!vrm) {
+                updateLoadingStatus('Please load a VRM avatar first');
+                return;
+            }
+
+            try {
+                updateLoadingStatus('Loading FBX animation...');
+                
+                // Create URL for the file
+                const url = URL.createObjectURL(file);
+                
+                // Use the working loadMixamoAnimation approach
+                const retargetedClip = await loadMixamoAnimation(url, vrm.userData.vrm);
+                
+                if (retargetedClip) {
+                    // Clean up existing animation
+                    if (currentMixer) {
+                        currentMixer.stopAllAction();
+                    }
+                    
+                    currentMixer = new THREE.AnimationMixer(vrm.scene);
+
+                    // Reset VRM pose before applying FBX animation
+                    if (vrm.userData.vrm && vrm.userData.vrm.humanoid) {
+                        vrm.userData.vrm.humanoid.resetNormalizedPose();
+                        console.log('VRM pose reset for FBX animation');
+                    }
+
+                    animationClip = retargetedClip;
+                    currentAnimationAction = currentMixer.clipAction(animationClip);
+                    currentAnimationAction.setLoop(THREE.LoopRepeat);
+                    updateLoadingStatus('FBX animation loaded and retargeted to VRM');
+                } else {
+                    updateLoadingStatus('Error retargeting FBX animation to VRM bones');
+                }
+
+                URL.revokeObjectURL(url);
+
+            } catch (error) {
+                console.error('Error loading FBX animation:', error);
+                updateLoadingStatus(`Failed to load FBX animation: ${error.message}`);
+            }
+        }
+
+        // Load Mixamo animation, convert for three-vrm use (from working reference)
+        function loadMixamoAnimation(url, vrm) {
+            const loader = new FBXLoader();
+            return loader.loadAsync(url).then((asset) => {
+                const clip = THREE.AnimationClip.findByName(asset.animations, 'mixamo.com');
+                
+                if (!clip) {
+                    console.warn('No mixamo.com animation clip found, using first available animation');
+                    if (asset.animations.length === 0) {
+                        throw new Error('No animations found in FBX file');
+                    }
+                    const firstClip = asset.animations[0];
+                    return convertMixamoClip(firstClip, asset, vrm);
+                }
+
+                return convertMixamoClip(clip, asset, vrm);
+            });
+        }
+
+        // Convert Mixamo clip to VRM compatible clip (from working reference)
+        function convertMixamoClip(clip, asset, vrm) {
+            const tracks = [];
+            const restRotationInverse = new THREE.Quaternion();
+            const parentRestWorldRotation = new THREE.Quaternion();
+            const _quatA = new THREE.Quaternion();
+            const _vec3 = new THREE.Vector3();
+
+            // Adjust with reference to hips height
+            const motionHipsHeight = asset.getObjectByName('mixamorigHips').position.y;
+            const vrmHipsY = vrm.humanoid?.getNormalizedBoneNode('hips').getWorldPosition(_vec3).y;
+            const vrmRootY = vrm.scene.getWorldPosition(_vec3).y;
+            const vrmHipsHeight = Math.abs(vrmHipsY - vrmRootY);
+            const hipsPositionScale = vrmHipsHeight / motionHipsHeight;
+
+            clip.tracks.forEach((track) => {
+                // Convert each track for VRM use
+                const trackSplitted = track.name.split('.');
+                const mixamoRigName = trackSplitted[0];
+                const vrmBoneName = mixamoVRMRigMap[mixamoRigName];
+                const vrmNodeName = vrm.humanoid?.getNormalizedBoneNode(vrmBoneName)?.name;
+                const mixamoRigNode = asset.getObjectByName(mixamoRigName);
+
+                if (vrmNodeName != null) {
+                    const propertyName = trackSplitted[1];
+
+                    // Store rotations of rest-pose
+                    mixamoRigNode.getWorldQuaternion(restRotationInverse).invert();
+                    mixamoRigNode.parent.getWorldQuaternion(parentRestWorldRotation);
+
+                    if (track instanceof THREE.QuaternionKeyframeTrack) {
+                        // Retarget rotation of mixamoRig to NormalizedBone
+                        for (let i = 0; i < track.values.length; i += 4) {
+                            const flatQuaternion = track.values.slice(i, i + 4);
+                            _quatA.fromArray(flatQuaternion);
+
+                            // Parent rest world rotation * track rotation * rest world rotation inverse
+                            _quatA
+                                .premultiply(parentRestWorldRotation)
+                                .multiply(restRotationInverse);
+
+                            _quatA.toArray(flatQuaternion);
+                            flatQuaternion.forEach((v, index) => {
+                                track.values[index + i] = v;
+                            });
+                        }
+
+                        tracks.push(
+                            new THREE.QuaternionKeyframeTrack(
+                                `${vrmNodeName}.${propertyName}`,
+                                track.times,
+                                track.values.map((v, i) => (vrm.meta?.metaVersion === '0' && i % 2 === 0 ? -v : v))
+                            )
+                        );
+
+                    } else if (track instanceof THREE.VectorKeyframeTrack) {
+                        const value = track.values.map((v, i) => (vrm.meta?.metaVersion === '0' && i % 3 !== 1 ? -v : v) * hipsPositionScale);
+                        tracks.push(new THREE.VectorKeyframeTrack(`${vrmNodeName}.${propertyName}`, track.times, value));
+                    }
+                }
+            });
+
+            return new THREE.AnimationClip('vrmAnimation', clip.duration, tracks);
+        }
+        
+        function clearAnimation() {
+            if (currentAnimationAction) {
+                currentAnimationAction.stop();
+                currentAnimationAction = null;
+            }
+            if (currentMixer) {
+                currentMixer.stopAllAction();
+                currentMixer = null;
+            }
+            currentVrmAnimation = null;
+            animationClip = null;
+            
+            document.getElementById('vrmaFile').value = '';
+            updateLoadingStatus('Animation cleared');
+        }
+        
+        function playAnimation() {
+            if (!currentAnimationAction) {
+                updateLoadingStatus('No animation loaded');
+                return;
+            }
+            
+            console.log('Playing animation:', currentAnimationAction);
+            console.log('Animation clip:', animationClip);
+            console.log('Animation mixer:', currentMixer);
+            
+            currentAnimationAction.reset();
+            currentAnimationAction.play();
+            
+            console.log('Animation action playing:', currentAnimationAction.isRunning());
+            console.log('Animation action time:', currentAnimationAction.time);
+            console.log('Animation action weight:', currentAnimationAction.getEffectiveWeight());
+            
+            updateLoadingStatus('Animation playing');
+        }
+        
+        function stopAnimation() {
+            if (!currentAnimationAction) {
+                updateLoadingStatus('No animation loaded');
+                return;
+            }
+            
+            currentAnimationAction.stop();
+            updateLoadingStatus('Animation stopped');
+        }
+        
+        function resetAnimation() {
+            if (!currentAnimationAction) {
+                updateLoadingStatus('No animation loaded');
+                return;
+            }
+            
+            currentAnimationAction.reset();
+            updateLoadingStatus('Animation reset');
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const deltaTime = clock.getDelta();
+            const currentTime = performance.now();
+            
+            if (animationEnabled && vrm) {
+                // Update VRM from audio
+                updateVRMFromAudio();
+                
+                // Update system audio detection for talking animation
+                updateSystemAudioDetection();
+                
+                // Update VRMA animation mixer
+                if (currentMixer) {
+                    currentMixer.update(deltaTime);
+                    
+                    // Debug animation progress occasionally
+                    if (currentAnimationAction && Math.random() < 0.01) { // 1% chance per frame
+                        console.log(`Animation time: ${currentAnimationAction.time.toFixed(3)}s / ${animationClip?.duration?.toFixed(3)}s`);
+                    }
+                }
+                
+                // Update VRM animation (Modern API)
+                if (vrm.userData.vrm) {
+                    vrm.userData.vrm.update(deltaTime);
+                }
+                
+                // Update blinking
+                updateBlinking(currentTime);
+                
+            }
+            
+            // Update WASD movement (always active when VRM is loaded)
+            updateVRMMovement();
+            
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        
+        // Accordion functionality
+        function setupAccordions() {
+            const accordionHeaders = document.querySelectorAll('.accordion-header');
+            
+            accordionHeaders.forEach(header => {
+                header.addEventListener('click', function() {
+                    const content = this.nextElementSibling;
+                    const icon = this.querySelector('.accordion-icon');
+                    
+                    // Toggle active state
+                    this.classList.toggle('active');
+                    content.classList.toggle('active');
+                    
+                    // Update icon
+                    if (this.classList.contains('active')) {
+                        icon.textContent = '▲';
+                    } else {
+                        icon.textContent = '▼';
+                    }
+                });
+            });
+        }
+
+        // Start the application
+        initApp();
+    </script>
+</body>
+</html>
