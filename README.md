@@ -1,4 +1,4 @@
-<CENETER># 🎭 VRM Viewer + TTS Animation System</CENTER>
+<CENTER># 🎭 VRM Viewer + TTS Animation System</CENTER>
 
 <div align="center">
 
